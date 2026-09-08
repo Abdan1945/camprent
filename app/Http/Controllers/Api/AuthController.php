@@ -10,6 +10,40 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    public function register(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:8',
+            'phone_number' => 'nullable|string|max:20',
+            'role' => 'nullable|string',
+        ]);
+
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'phone_number' => $request->phone_number,
+            'role' => $request->role ?? 'user',
+        ]);
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'message' => 'Registrasi berhasil',
+            'access_token' => $token,
+            'token_type' => 'Bearer',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'phone_number' => $user->phone_number,
+            ]
+        ], 201);
+    }
+
     public function login(Request $request)
     {
         $request->validate([
@@ -25,7 +59,6 @@ class AuthController extends Controller
             ]);
         }
 
-        // Buat Sanctum Token
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
@@ -47,6 +80,7 @@ class AuthController extends Controller
         return response()->json($request->user());
     }
 
+    
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();

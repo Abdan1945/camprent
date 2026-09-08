@@ -12,11 +12,11 @@ class DatabaseSeeder extends Seeder
     {
         // Akun Admin Uji
         User::create([
-            'name' => 'Admin CampRent',
-            'phone_number' => '081234567890',
-            'email' => 'admin@camprent.com',
-            'password' => Hash::make('password123'),
-            'role' => 'admin',
+        'name' => 'Admin Test',
+        'email' => 'admin@gmail.com',
+        'password' => Hash::make('password123'),
+        'phone_number' => '08123456789',
+        'role' => 'admin',
         ]);
 
         // Akun User Uji
