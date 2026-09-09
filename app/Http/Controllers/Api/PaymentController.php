@@ -13,36 +13,60 @@ class PaymentController extends Controller
     // PROSES PEMBAYARAN / UPLOAD BUKTI
     public function store(Request $request)
     {
-        $request->validate([
-            'rental_id'      => 'required|exists:rentals,id',
-            'payment_method' => 'required|string',
-            'amount'         => 'required|numeric',
-            'payment_proof'  => 'nullable|string',
-        ]);
+        try {
+            // Validasi data yang masuk dari frontend
+            $request->validate([
+                'rental_id'      => 'required|exists:rentals,id',
+                'payment_method' => 'required|string',
+                'amount'         => 'required|numeric',
+                'payment_proof'  => 'required|file|mimes:jpeg,png,jpg,pdf|max:2048',
+            ]);
 
-        $rental = Rental::findOrFail($request->rental_id);
+            // Cari data rental berdasarkan ID
+            $rental = Rental::findOrFail($request->rental_id);
 
-        // Buat record pembayaran
-        $payment = Payment::create([
-            'rental_id'      => $rental->id,
-            'payment_code'   => 'PAY-' . strtoupper(Str::random(8)),
-            'amount'         => $request->amount,
-            'payment_method' => $request->payment_method,
-            'payment_proof'  => $request->payment_proof,
-            'status'         => 'success',
-            'paid_at'        => now(),
-        ]);
+            // Simpan file bukti transfer ke storage/app/public/payments
+            $path = null;
+            if ($request->hasFile('payment_proof')) {
+                $path = $request->file('payment_proof')->store('payments', 'public');
+            }
 
-        // Update status di tabel rentals
-        $rental->update([
-            'payment_status' => 'paid',
-            'rental_status'  => 'approved',
-        ]);
+            // Buat record pembayaran baru (status 'verified' sesuai enum tabel payments)
+            $payment = Payment::create([
+                'rental_id'      => $rental->id,
+                'payment_code'   => 'PAY-' . strtoupper(Str::random(8)),
+                'amount'         => $request->amount,
+                'payment_method' => $request->payment_method,
+                'payment_proof'  => $path,
+                'status'         => 'verified',
+                'paid_at'        => now(),
+            ]);
 
-        return response()->json([
-            'message' => 'Pembayaran berhasil dikonfirmasi',
-            'data'    => $payment
-        ], 201);
+            // Update status pembayaran dan status sewa di tabel rentals
+            // Menggunakan 'ready_for_pickup' yang valid sesuai enum migrasi rentals
+            $rental->update([
+                'payment_status' => 'paid',
+                'rental_status'  => 'ready_for_pickup',
+            ]);
+
+            return response()->json([
+                'message' => 'Pembayaran berhasil dikonfirmasi',
+                'data'    => $payment
+            ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'message' => 'Validasi gagal!',
+                'errors'  => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Terjadi kesalahan pada server backend!',
+                'error'   => $e->getMessage(),
+                'line'    => $e->getLine(),
+                'file'    => $e->getFile()
+            ], 500);
+        }
     }
 
     // DETAIL PEMBAYARAN

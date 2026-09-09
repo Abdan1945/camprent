@@ -2,21 +2,37 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Rental extends Model
 {
-    protected $fillable = ['user_id', 'rental_code', 'start_date', 'end_date', 'total_price', 'payment_status', 'rental_status', 'payment_proof'];
+    use HasFactory;
 
-    public function user() {
-    return $this->belongsTo(User::class);
-}
+    protected $fillable = [
+        'user_id',
+        'rental_code',
+        'start_date',
+        'end_date',
+        'total_price', 
+        'payment_status',
+        'rental_status',
+        'payment_proof'
+    ];
 
-    public function items() {
-    return $this->hasMany(RentalItem::class);
-}
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 
-    public function payments() {
-    return $this->hasMany(Payment::class);
-}
+    // Nama relasi disesuaikan jadi rentalItems agar cocok dengan Controller
+    public function rentalItems()
+    {
+        return $this->hasMany(RentalItem::class, 'rental_id');
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
 }

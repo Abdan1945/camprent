@@ -26,3 +26,22 @@ class Payment extends Model
         return $this->belongsTo(Rental::class);
     }
 }
+
+
+
+// abdan ka up kata sadgbhagksj
+// ie komputer saya
+// kata-kata hari ini
+// dadan bencong
+// salamud
+// dailhdlinawndlanda
+// dkjaukdwyabdba
+// dadan bencong
+// dadan bencong
+// dadan bencong
+// dadan bencong
+// dadan bencong
+// dadan boti
+// hapus boti
+
+// system out println("dadan bencong")
