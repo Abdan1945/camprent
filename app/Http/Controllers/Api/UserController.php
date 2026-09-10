@@ -6,9 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
 
 class UserController extends Controller
 {
+    // MENDAPATKAN PROFIL USER YANG SEDANG AKTIF (Endpoint /me)
+    public function profile(Request $request)
+    {
+        return response()->json($request->user(), 200);
+    }
+
     // GET ALL USERS (Khusus Admin untuk melihat semua pelanggan / user)
     public function index()
     {

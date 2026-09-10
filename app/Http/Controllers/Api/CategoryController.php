@@ -86,8 +86,19 @@ class CategoryController extends Controller
             return response()->json(['message' => 'Kategori tidak ditemukan'], 404);
         }
 
+        // Cek relasi menggunakan nama method 'equipments()' dari Model Category
+        if ($category->equipments()->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kategori tidak dapat dihapus karena masih digunakan oleh data barang.'
+            ], 422);
+        }
+
         $category->delete();
 
-        return response()->json(['message' => 'Kategori berhasil dihapus'], 200);
+        return response()->json([
+            'success' => true,
+            'message' => 'Kategori berhasil dihapus'
+        ], 200);
     }
 }
