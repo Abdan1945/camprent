@@ -15,6 +15,9 @@ use App\Http\Controllers\Api\UserController;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 
+// Route Webhook Notification dari Midtrans
+Route::post('/midtrans/notification', [PaymentController::class, 'callback']);
+
 // Siapa pun boleh melihat daftar barang dan kategori tanpa harus punya akun/login
 Route::get('/equipments', [EquipmentController::class, 'index']);
 Route::get('/equipments/{id}', [EquipmentController::class, 'show']);
@@ -26,8 +29,9 @@ Route::get('/categories/{id}', [CategoryController::class, 'show']);
 // 🔒 PROTECTED ROUTE (Wajib Bawa Token Sanctum / Harus Login)
 // ==========================================
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/me', [AuthController::class, 'profile']);
+    // Route::('/me', [AuthController::class, 'profile']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    // Route::post('/users/{id}', [UserController::class, 'update']);
 
     Route::apiResource('users', UserController::class);
 

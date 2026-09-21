@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class UserController extends Controller
 {
@@ -34,7 +34,7 @@ class UserController extends Controller
             'email'        => 'required|string|email|max:255|unique:users',
             'password'     => 'required|string|min:6',
             'phone_number' => 'nullable|string|max:20',
-            'role'         => 'required|in:admin,customer',
+            'role'         => 'required|in:admin,customer,user',
         ]);
 
         $user = User::create([
@@ -63,7 +63,7 @@ class UserController extends Controller
         return response()->json(['data' => $user], 200);
     }
 
-    // UPDATE USER (Admin mengedit data/role user)
+    // UPDATE USER (Mengedit data profil & foto)
     public function update(Request $request, $id)
     {
         $user = User::find($id);
@@ -72,30 +72,51 @@ class UserController extends Controller
             return response()->json(['message' => 'User tidak ditemukan'], 404);
         }
 
+        // 1. Validasi input (tanda koma di akhir baris photo sudah diperbaiki)
         $request->validate([
             'name'         => 'required|string|max:255',
             'email'        => 'required|string|email|max:255|unique:users,email,' . $id,
             'phone_number' => 'nullable|string|max:20',
-            'role'         => 'required|in:admin,customer',
+            'photo'        => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'role'         => 'sometimes|required|in:admin,customer,user',
+            'password'     => 'nullable|string|min:6',
         ]);
 
+        // 2. Masukkan data dasar yang akan di-update
         $dataToUpdate = [
             'name'         => $request->name,
             'email'        => $request->email,
             'phone_number' => $request->phone_number,
-            'role'         => $request->role,
         ];
 
-        // Jika password diisi, update password baru
+        // Jika field role dikirim dari frontend, ikut di-update
+        if ($request->has('role')) {
+            $dataToUpdate['role'] = $request->role;
+        }
+
+        // 3. Jika password diisi, hash password baru
         if ($request->filled('password')) {
             $dataToUpdate['password'] = Hash::make($request->password);
         }
 
+        // 4. Tangani upload file foto baru jika ada
+        if ($request->hasFile('photo')) {
+            // Hapus foto lama di storage jika ada untuk menghemat ruang
+            if ($user->photo && Storage::disk('public')->exists($user->photo)) {
+                Storage::disk('public')->delete($user->photo);
+            }
+
+            // Simpan foto baru ke folder storage/app/public/avatars
+            $path = $request->file('photo')->store('avatars', 'public');
+            $dataToUpdate['photo'] = $path;
+        }
+
+        // 5. Simpan perubahan ke database
         $user->update($dataToUpdate);
 
         return response()->json([
-            'message' => 'Data user berhasil diperbarui',
-            'data'    => $user
+            'message' => 'Profil berhasil diperbarui.',
+            'user'    => $user
         ], 200);
     }
 
@@ -106,6 +127,11 @@ class UserController extends Controller
 
         if (!$user) {
             return response()->json(['message' => 'User tidak ditemukan'], 404);
+        }
+
+        // Hapus file foto profil fisiknya jika ada
+        if ($user->photo && Storage::disk('public')->exists($user->photo)) {
+            Storage::disk('public')->delete($user->photo);
         }
 
         $user->delete();
