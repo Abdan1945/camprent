@@ -44,6 +44,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/categories/{id}', [CategoryController::class, 'update']);
     Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
 
+    // Route khusus Midtrans Token
+    Route::post('/payments/midtrans/token', [PaymentController::class, 'getSnapToken']);
+
     // Route khusus upload payment & update status rental
     Route::post('/rentals/{id}/payment', [RentalController::class, 'uploadPayment']);
     Route::put('/rentals/{id}/status', [RentalController::class, 'updateStatus']);

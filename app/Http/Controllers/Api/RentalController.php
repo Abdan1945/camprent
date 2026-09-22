@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Equipment;
 use App\Models\Rental;
+use App\Services\MidtransService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -13,13 +14,11 @@ use Carbon\Carbon;
 
 class RentalController extends Controller
 {
-    // Mengambil daftar rental (Otomatis membedakan Admin & User)
     public function index(Request $request)
     {
         $user = $request->user();
         $query = Rental::with(['user', 'rentalItems.equipment', 'payments']);
 
-        // Jika bukan admin, hanya ambil data milik user yang sedang login
         if ($user->role !== 'admin') {
             $query->where('user_id', $user->id);
         }
@@ -28,11 +27,10 @@ class RentalController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $rentals
+            'data'    => $rentals
         ], 200);
     }
 
-    // Proses pemesanan / checkout alat camping
     public function store(Request $request)
     {
         $request->validate([
@@ -53,9 +51,10 @@ class RentalController extends Controller
             $days = $startDate->diffInDays($endDate) ?: 1;
 
             foreach ($request->items as $item) {
-                $equipment = Equipment::findOrFail($item['equipment_id']);
+                $equipment = Equipment::lockForUpdate()->findOrFail($item['equipment_id']);
 
                 if ($equipment->stock < $item['qty']) {
+                    DB::rollBack();
                     return response()->json([
                         'message' => "Stok peralatan {$equipment->name} tidak mencukupi"
                     ], 400);
@@ -65,14 +64,14 @@ class RentalController extends Controller
                 $totalPrice += $subtotal;
 
                 $rentalItemsData[] = [
+                    'equipment'    => $equipment,
                     'equipment_id' => $equipment->id,
                     'qty'          => $item['qty'],
                     'subtotal'     => $subtotal,
                 ];
-
-                $equipment->decrement('stock', $item['qty']);
             }
 
+            // Simpan data rental
             $rental = Rental::create([
                 'user_id'        => $request->user()->id,
                 'rental_code'    => 'RENT-' . strtoupper(Str::random(8)),
@@ -84,14 +83,33 @@ class RentalController extends Controller
             ]);
 
             foreach ($rentalItemsData as $rentalItem) {
-                $rental->rentalItems()->create($rentalItem);
+                $rental->rentalItems()->create([
+                    'equipment_id' => $rentalItem['equipment_id'],
+                    'qty'          => $rentalItem['qty'],
+                    'subtotal'     => $rentalItem['subtotal'],
+                ]);
+
+                // Kurangi stok
+                $rentalItem['equipment']->decrement('stock', $rentalItem['qty']);
             }
+
+            $midtrans = app(MidtransService::class);
+            $orderId = 'RENTAL-' . $rental->id . '-' . time();
+            $snapToken = $midtrans->createSnapToken(
+                $orderId,
+                (float) $rental->total_price,
+                [
+                    'first_name' => $request->user()->name,
+                    'email' => $request->user()->email,
+                ]
+            );
 
             DB::commit();
 
             return response()->json([
-                'message' => 'Pemesanan berhasil dibuat',
-                'data'    => $rental->load('rentalItems.equipment')
+                'message'    => 'Pemesanan berhasil dibuat',
+                'snap_token' => $snapToken,
+                'data'       => $rental->load('rentalItems.equipment')
             ], 201);
 
         } catch (\Exception $e) {
@@ -103,7 +121,6 @@ class RentalController extends Controller
         }
     }
 
-    // Menampilkan detail transaksi berdasarkan ID
     public function show($id)
     {
         $rental = Rental::with(['user', 'rentalItems.equipment', 'payments'])->find($id);
@@ -116,11 +133,38 @@ class RentalController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $rental
+            'data'    => $rental
         ], 200);
     }
 
-    // Mengunggah bukti pembayaran sesuai rute /rentals/{id}/payment
+    public function updateStatus(Request $request, $id)
+    {
+        $request->validate([
+            'rental_status'  => 'nullable|string',
+            'payment_status' => 'nullable|string',
+        ]);
+
+        try {
+            $rental = Rental::findOrFail($id);
+
+            $rental->update(array_filter([
+                'rental_status'  => $request->rental_status,
+                'payment_status' => $request->payment_status,
+            ]));
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Status penyewaan berhasil diperbarui',
+                'data'    => $rental
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal memperbarui status: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function uploadPayment(Request $request, $id)
     {
         $request->validate([
