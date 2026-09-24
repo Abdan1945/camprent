@@ -165,50 +165,50 @@ class RentalController extends Controller
         }
     }
 
-    public function uploadPayment(Request $request, $id)
-    {
-        $request->validate([
-            'payment_proof' => 'required|image|mimes:jpeg,png,jpg|max:2048',
-        ]);
+    // public function uploadPayment(Request $request, $id)
+    // {
+    //     $request->validate([
+    //         'payment_proof' => 'required|image|mimes:jpeg,png,jpg|max:2048',
+    //     ]);
 
-        try {
-            $user = $request->user();
-            $query = Rental::where('id', $id);
+    //     try {
+    //         $user = $request->user();
+    //         $query = Rental::where('id', $id);
 
-            if ($user->role !== 'admin') {
-                $query->where('user_id', $user->id);
-            }
+    //         if ($user->role !== 'admin') {
+    //             $query->where('user_id', $user->id);
+    //         }
 
-            $rental = $query->firstOrFail();
+    //         $rental = $query->firstOrFail();
 
-            if ($request->hasFile('payment_proof')) {
-                if ($rental->payment_proof) {
-                    Storage::disk('public')->delete(str_replace('storage/', '', $rental->payment_proof));
-                }
+    //         if ($request->hasFile('payment_proof')) {
+    //             if ($rental->payment_proof) {
+    //                 Storage::disk('public')->delete(str_replace('storage/', '', $rental->payment_proof));
+    //             }
 
-                $path = $request->file('payment_proof')->store('payment_proofs', 'public');
+    //             $path = $request->file('payment_proof')->store('payment_proofs', 'public');
 
-                $rental->payment_proof = $path;
-                $rental->payment_status = 'paid';
-                $rental->save();
+    //             $rental->payment_proof = $path;
+    //             $rental->payment_status = 'paid';
+    //             $rental->save();
 
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Bukti pembayaran berhasil diunggah',
-                    'data'    => $rental->load(['user', 'rentalItems.equipment'])
-                ], 200);
-            }
+    //             return response()->json([
+    //                 'success' => true,
+    //                 'message' => 'Bukti pembayaran berhasil diunggah',
+    //                 'data'    => $rental->load(['user', 'rentalItems.equipment'])
+    //             ], 200);
+    //         }
 
-            return response()->json([
-                'success' => false,
-                'message' => 'File bukti pembayaran tidak ditemukan'
-            ], 400);
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'File bukti pembayaran tidak ditemukan'
+    //         ], 400);
 
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
-            ], 500);
-        }
-    }
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Terjadi kesalahan: ' . $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
 }
