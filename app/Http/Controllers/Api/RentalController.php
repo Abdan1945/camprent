@@ -165,6 +165,103 @@ class RentalController extends Controller
         }
     }
 
+    public function pickup(Request $request, $id)
+    {
+        $request->validate([
+            'ktp_number'  => 'required|string|min:16|max:20',
+            'pickup_notes' => 'nullable|string|max:1000',
+        ]);
+
+        try {
+            $rental = Rental::findOrFail($id);
+
+            if ($request->user()->id !== $rental->user_id && $request->user()->role !== 'admin') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda tidak berhak mengambil barang ini.'
+                ], 403);
+            }
+
+            $rental->update([
+                'ktp_number' => $request->ktp_number,
+                'pickup_notes' => $request->pickup_notes ?? 'Barang diambil sesuai kondisi awal. KTP diserahkan sebagai jaminan.',
+                'pickup_date' => now(),
+                'rental_status' => 'ongoing',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Barang berhasil diambil dengan jaminan KTP.',
+                'data' => $rental,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mencatat pengambilan barang: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function returnItem(Request $request, $id)
+    {
+        $request->validate([
+            'return_notes' => 'nullable|string|max:1000',
+            'is_damage' => 'nullable|boolean',
+            'is_lost' => 'nullable|boolean',
+            'damage_note' => 'nullable|string|max:1000',
+            'lost_note' => 'nullable|string|max:1000',
+        ]);
+
+        try {
+            $rental = Rental::findOrFail($id);
+
+            $returnDate = Carbon::parse($request->return_date ?? now());
+            $endDate = Carbon::parse($rental->end_date);
+            $lateFee = 0;
+
+            if ($returnDate->greaterThan($endDate)) {
+                $lateFee = (float) $rental->total_price * 0.2;
+            }
+
+            $isDamage = $request->boolean('is_damage');
+            $isLost = $request->boolean('is_lost');
+            $status = 'completed';
+
+            if ($isLost) {
+                $status = 'lost';
+            } elseif ($isDamage) {
+                $status = 'damaged';
+            }
+
+            $rental->update([
+                'return_notes' => $request->return_notes ?? 'Barang dikembalikan sesuai prosedur penyewaan.',
+                'return_date' => $returnDate,
+                'late_fee' => $lateFee,
+                'is_damage' => $isDamage,
+                'is_lost' => $isLost,
+                'damage_note' => $request->damage_note,
+                'lost_note' => $request->lost_note,
+                'rental_status' => $status,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => $isLost
+                    ? 'Barang hilang tercatat. Silakan tindak lanjuti sesuai kesepakatan.'
+                    : ($isDamage
+                        ? 'Barang rusak tercatat. Silakan tindak lanjuti sesuai kesepakatan.'
+                        : 'Barang berhasil dikembalikan.'),
+                'late_fee' => $lateFee,
+                'data' => $rental,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mencatat pengembalian barang: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
     // public function uploadPayment(Request $request, $id)
     // {
     //     $request->validate([

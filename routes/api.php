@@ -50,6 +50,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Route khusus upload payment & update status rental
     Route::post('/rentals/{id}/payment', [RentalController::class, 'uploadPayment']);
     Route::put('/rentals/{id}/status', [RentalController::class, 'updateStatus']);
+    Route::post('/rentals/{id}/pickup', [RentalController::class, 'pickup']);
+    Route::post('/rentals/{id}/return', [RentalController::class, 'returnItem']);
 
     Route::apiResource('rentals', RentalController::class)->only(['index', 'store', 'show']);
     Route::apiResource('payments', PaymentController::class)->only(['store', 'show']);
